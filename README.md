@@ -1,7 +1,7 @@
-# This repo contains the image detection code to be run on a raspberry pi. It also contains explanation of basic computer vision theory
-
 # Computer Vision
+This repo contains the image detection code to be run on a raspberry pi. It also contains explanation of basic computer vision theory
 
+## Theory
 If you are like me... coming into Computer Vision with no coding experience or knowledge,  
 this repository is meant to serve as an introductory guide to the basic **Theory** of Computer Vision  
 & uses LeNet-5 Architecture to demonstrate how to **Implement** it in code.
