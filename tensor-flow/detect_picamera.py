@@ -23,6 +23,9 @@ import argparse
 import io
 import re
 import time
+import datetime
+import requests
+import threading
 
 from annotation import Annotator
 # TODO
@@ -36,9 +39,9 @@ import picamera
 from PIL import Image
 from tflite_runtime.interpreter import Interpreter
 
+# ================================ Detection Functions ================================
 CAMERA_WIDTH = 300
 CAMERA_HEIGHT = 300
-
 
 def load_labels(path):
   """Loads the labels file. Supports files with or without index numbers."""
@@ -109,20 +112,69 @@ def annotate_objects(annotator, results, labels):
     
   annotator.text([0, 460], f"Person count: {len(results)}")
 
+# ================================ Data Handling Class ================================
+# TODO Change to environment variable
+SERVER_IP = "http://192.168.50.174:5000/"
+ROUTE = f"{SERVER_IP}admin/pi" 
+
+class Data(object):
+  """Object to encapsulate data sending/preprocessing"""
+  def __init__(self):
+    self.data = dict()
+    self.count = 0
+
+  def process_result(self, results):
+    """Processing routine called everytime image data comes in"""
+    if self.count < 5:
+      self.count += 1
+      self.data[f'img{self.count}'] = len(results)
+      print(self.data)
+    else:
+      self.count = 0
+      self.data['average'] = sorted([value for value in self.data.values()])[2]
+      self.data['timestamp'] = datetime.datetime.utcnow().isoformat(sep=' ', timespec='seconds')
+      self.send_data(ROUTE)
+
+  def send_data(self, endpoint):
+    """Send data to the server"""
+    try:
+      r = requests.post(endpoint, json=self.data, timeout=0.5)
+      r.raise_for_status()
+    except:
+      print("Could not send data")
+    finally:
+      self.data.clear()
+      time.sleep(1)
+
+def collect_data(switch, seconds):
+  while True:
+    try:
+      time.sleep(seconds)
+      switch.append(1)
+    except KeyboardInterrupt:
+      break
+
+# ================================ Main Function ================================
 
 def main():
   parser = argparse.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser.add_argument(
-      '--model', help='File path of .tflite file.', required=True)
+    '--model',
+    help='File path of .tflite file.',
+    required=False,
+    default="detect.tflite")
   parser.add_argument(
-      '--labels', help='File path of labels file.', required=True)
+    '--labels',
+    help='File path of labels file.',
+    required=False,
+    default="coco_labels.txt")
   parser.add_argument(
-      '--threshold',
-      help='Score threshold for detected objects.',
-      required=False,
-      type=float,
-      default=0.4)
+    '--threshold',
+    help='Score threshold for detected objects.',
+    required=False,
+    type=float,
+    default=0.4)
   parser.add_argument(
     '--watch', help='1 or 0',
     required=False,
@@ -135,51 +187,60 @@ def main():
   interpreter.allocate_tensors()
   _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
 
+  # Init background thread. Switch is a list because python cannot pass by value
+  switch = []
+  t = threading.Thread(target=collect_data, args=[switch, 1])
+  
   with picamera.PiCamera(
       resolution=(CAMERA_WIDTH, CAMERA_HEIGHT), framerate=30) as camera:
     camera.vflip = True
     camera.led = True
     on = args.watch
+    D = Data()
     if on:
       camera.start_preview()
+      time.sleep(2)
+      t.start()
     while True:
       try:
         stream = io.BytesIO()
         annotator = Annotator(camera, "green")
-        camera.capture(stream, format='jpeg')
-        stream.seek(0)
-        image = Image.open(stream)
-        results = detect_objects(interpreter, image, args.threshold)
-        stream.seek(0)
-        stream.truncate()
-        print(f"Results = {len(results)}")
-        if not on:
-          time.sleep(5)
-      
         if on:
-          for _ in camera.capture_continuous(
-              stream, format='jpeg', use_video_port=True):
+          for _ in camera.capture_continuous(stream, format='jpeg',
+                                             resize=(input_width, input_height),
+                                             use_video_port=True):
             stream.seek(0)
-            image = Image.open(stream).convert('RGB').resize(
-              (input_width, input_height), Image.ANTIALIAS)
-          
+            image = Image.open(stream).convert('RGB')
+            #.resize((input_width, input_height), Image.NEAREST)#Image.ANTIALIAS)
+            
             start_time = time.monotonic()
             results = detect_objects(interpreter, image, args.threshold)
             elapsed_ms = (time.monotonic() - start_time) * 1000
+
+            if len(switch):
+              D.process_result(results)
+              switch.clear()
             
             annotator.clear()
             annotate_objects(annotator, results, labels)
             annotator.text([5, 0], '%.1fms' % (elapsed_ms))
             annotator.update()
-              
             stream.seek(0)
-            stream.truncate()
+        else:
+          camera.capture(stream, format='jpeg')
+          stream.truncate()
+          stream.seek(0)                
+          image = Image.open(stream)
+          results = detect_objects(interpreter, image, args.threshold)
+          D.process_result(results)
+
       except KeyboardInterrupt:
         break
 
+
     print("Exitting")
     camera.stop_preview()
-
+    t.join()
 
 if __name__ == '__main__':
   main()
