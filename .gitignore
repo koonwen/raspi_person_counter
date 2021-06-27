@@ -1,5 +1,14 @@
+# Virtual Environments
 venv
+
+# Database
 1024px-usmc-120205-m-av740-004copy.jpg
 Model/photos.db
+
+#Machine Configs
 .DS_Store
 .idea
+.env
+
+# Cache
+__pycache__

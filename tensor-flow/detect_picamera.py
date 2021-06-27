@@ -22,6 +22,7 @@ from __future__ import print_function
 import argparse
 import io
 import re
+import os
 import time
 import datetime
 import requests
@@ -38,6 +39,9 @@ import picamera
 
 from PIL import Image
 from tflite_runtime.interpreter import Interpreter
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ================================ Detection Functions ================================
 CAMERA_WIDTH = 300
@@ -114,31 +118,34 @@ def annotate_objects(annotator, results, labels):
 
 # ================================ Data Handling Class ================================
 # TODO Change to environment variable
-SERVER_IP = "http://192.168.50.174:5000/"
-ROUTE = f"{SERVER_IP}admin/pi" 
+SERVER_IP = os.environ["SERVER_IP"]
+ROUTE = f"http://{SERVER_IP}/admin/pi"
 
 class Data(object):
   """Object to encapsulate data sending/preprocessing"""
   def __init__(self):
     self.data = dict()
     self.count = 0
-
-  def process_result(self, results):
+    self.results = []
+    self.flag = True
+    
+  def process_result(self):
     """Processing routine called everytime image data comes in"""
     if self.count < 5:
       self.count += 1
-      self.data[f'img{self.count}'] = len(results)
+      self.data[f'img{self.count}'] = len(self.results)
       print(self.data)
     else:
       self.count = 0
       self.data['average'] = sorted([value for value in self.data.values()])[2]
       self.data['timestamp'] = datetime.datetime.utcnow().isoformat(sep=' ', timespec='seconds')
+      print(self.data)
       self.send_data(ROUTE)
 
   def send_data(self, endpoint):
     """Send data to the server"""
     try:
-      r = requests.post(endpoint, json=self.data, timeout=0.5)
+      r = requests.post(endpoint, json=self.data, timeout=5)
       r.raise_for_status()
     except:
       print("Could not send data")
@@ -146,14 +153,12 @@ class Data(object):
       self.data.clear()
       time.sleep(1)
 
-def collect_data(switch, seconds):
-  while True:
-    try:
-      time.sleep(seconds)
-      switch.append(1)
-    except KeyboardInterrupt:
-      break
-
+  def timer_thread(self):
+    time.sleep(2)
+    while self.flag:
+      self.process_result()
+      time.sleep(1)
+      
 # ================================ Main Function ================================
 
 def main():
@@ -174,7 +179,7 @@ def main():
     help='Score threshold for detected objects.',
     required=False,
     type=float,
-    default=0.4)
+    default=0.6)
   parser.add_argument(
     '--watch', help='1 or 0',
     required=False,
@@ -187,10 +192,6 @@ def main():
   interpreter.allocate_tensors()
   _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
 
-  # Init background thread. Switch is a list because python cannot pass by value
-  switch = []
-  t = threading.Thread(target=collect_data, args=[switch, 1])
-  
   with picamera.PiCamera(
       resolution=(CAMERA_WIDTH, CAMERA_HEIGHT), framerate=30) as camera:
     camera.vflip = True
@@ -198,6 +199,7 @@ def main():
     on = args.watch
     D = Data()
     if on:
+      t = threading.Thread(target=D.timer_thread)
       camera.start_preview()
       time.sleep(2)
       t.start()
@@ -214,15 +216,11 @@ def main():
             #.resize((input_width, input_height), Image.NEAREST)#Image.ANTIALIAS)
             
             start_time = time.monotonic()
-            results = detect_objects(interpreter, image, args.threshold)
+            D.results = detect_objects(interpreter, image, args.threshold)
             elapsed_ms = (time.monotonic() - start_time) * 1000
 
-            if len(switch):
-              D.process_result(results)
-              switch.clear()
-            
             annotator.clear()
-            annotate_objects(annotator, results, labels)
+            annotate_objects(annotator, D.results, labels)
             annotator.text([5, 0], '%.1fms' % (elapsed_ms))
             annotator.update()
             stream.seek(0)
@@ -231,16 +229,16 @@ def main():
           stream.truncate()
           stream.seek(0)                
           image = Image.open(stream)
-          results = detect_objects(interpreter, image, args.threshold)
-          D.process_result(results)
+          D.results = detect_objects(interpreter, image, args.threshold)
+          D.process_result()
 
       except KeyboardInterrupt:
         break
 
-
     print("Exitting")
-    camera.stop_preview()
+    D.flag = False
     t.join()
+    camera.stop_preview()
 
 if __name__ == '__main__':
   main()
