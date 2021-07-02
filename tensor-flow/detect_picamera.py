@@ -44,8 +44,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ================================ Detection Functions ================================
-CAMERA_WIDTH = 300
-CAMERA_HEIGHT = 300
+CAMERA_WIDTH = 640
+CAMERA_HEIGHT = 480
+
+WINDOW_X = 1920//4
+WINDOW_Y = 0
 
 def load_labels(path):
   """Loads the labels file. Supports files with or without index numbers."""
@@ -104,8 +107,8 @@ def annotate_objects(annotator, results, labels):
     # Convert the bounding box figures from relative coordinates
     # to absolute coordinates based on the original resolution
     ymin, xmin, ymax, xmax = obj['bounding_box']
-    xmin = int(xmin * CAMERA_WIDTH)
-    xmax = int(xmax * CAMERA_WIDTH)
+    xmin = int(xmin * CAMERA_WIDTH )
+    xmax = int(xmax * CAMERA_WIDTH )
     ymin = int(ymin * CAMERA_HEIGHT)
     ymax = int(ymax * CAMERA_HEIGHT)
 
@@ -113,8 +116,6 @@ def annotate_objects(annotator, results, labels):
     annotator.bounding_box([xmin, ymin, xmax, ymax])
     annotator.text([xmin, ymin],
                    '%s\n%.2f' % (labels[obj['class_id']], obj['score']))
-    
-  annotator.text([0, 460], f"Person count: {len(results)}")
 
 # ================================ Data Handling Class ================================
 # TODO Change to environment variable
@@ -138,14 +139,14 @@ class Data(object):
     else:
       self.count = 0
       self.data['average'] = sorted([value for value in self.data.values()])[2]
-      self.data['timestamp'] = datetime.datetime.utcnow().isoformat(sep=' ', timespec='seconds')
+      self.data['timestamp'] = datetime.datetime.now().isoformat(sep=' ', timespec='seconds')
       print(self.data)
       self.send_data(ROUTE)
 
   def send_data(self, endpoint):
     """Send data to the server"""
     try:
-      r = requests.post(endpoint, json=self.data, timeout=5)
+      r = requests.post(endpoint, json=self.data, timeout=2)
       r.raise_for_status()
     except:
       print("Could not send data")
@@ -200,7 +201,7 @@ def main():
     D = Data()
     if on:
       t = threading.Thread(target=D.timer_thread)
-      camera.start_preview()
+      camera.start_preview()#fullscreen=False, window=(WINDOW_X,WINDOW_Y,CAMERA_WIDTH,CAMERA_HEIGHT))
       time.sleep(2)
       t.start()
     while True:
@@ -222,10 +223,11 @@ def main():
             annotator.clear()
             annotate_objects(annotator, D.results, labels)
             annotator.text([5, 0], '%.1fms' % (elapsed_ms))
+            annotator.text([540, 0], f"Person count: {len(D.results)}")
             annotator.update()
             stream.seek(0)
         else:
-          camera.capture(stream, format='jpeg')
+          camera.capture(stream, format='jpeg', resize=(input_width, input_height))
           stream.truncate()
           stream.seek(0)                
           image = Image.open(stream)

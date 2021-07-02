@@ -65,7 +65,7 @@ def _round_buffer_dims(dims):
 class Annotator:
   """Utility for managing annotations on the camera preview."""
 
-  def __init__(self, camera, default_color=None):
+  def __init__(self, camera, default_color=None, window=(0,0)):
     """Initializes Annotator parameters.
 
     Args:
@@ -96,7 +96,7 @@ class Annotator:
 
   def clear(self):
     """Clears the contents of the overlay, leaving only the plain background."""
-    self._draw.rectangle((0, 0) + self._dims, fill=(0, 0, 0, 0x00))
+    self._draw.rectangle((0,0) + self._dims, fill=(0, 0, 0, 0x00))
 
   def bounding_box(self, rect, outline=None, fill=None):
     """Draws a bounding box around the specified rectangle.
