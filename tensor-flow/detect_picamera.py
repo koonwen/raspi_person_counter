@@ -40,7 +40,7 @@ import picamera
 from PIL import Image
 from tflite_runtime.interpreter import Interpreter
 from dotenv import load_dotenv
-from signal import switch
+from signal import switch, light
 
 load_dotenv()
 
@@ -241,11 +241,12 @@ def main():
 
       except KeyboardInterrupt:
         break
+        print("Exitting")
+        D.flag = False
+        camera.stop_preview()
 
-    print("Exitting")
-    D.flag = False
-    t.join()
-    camera.stop_preview()
+    if on:
+        t.join()
 
 if __name__ == '__main__':
   main()

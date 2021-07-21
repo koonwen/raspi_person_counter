@@ -1,6 +1,5 @@
 from gpiozero import LED, Button
 from time import sleep
-from signal import pause
 
 led = LED(4)
 button = Button(17)
@@ -13,11 +12,13 @@ def light():
 
 
 def switch(func):
-	def wrapper(func):
+	def wrapper():
 		while True:
 			try:
-				button.when_pressed = light
+				button.wait_for_press()
+				light()
 				func()
+				light()
 			except KeyboardInterrupt:
 				break
 				print("\nQuitting")
