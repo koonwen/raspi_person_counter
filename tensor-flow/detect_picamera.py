@@ -118,9 +118,9 @@ def annotate_objects(annotator, results, labels):
                    '%s\n%.2f' % (labels[obj['class_id']], obj['score']))
 
 # ================================ Data Handling Class ================================
-# TODO Change to environment variable
 SERVER_IP = os.environ["SERVER_IP"]
-ROUTE = f"http://{SERVER_IP}/admin/pi"
+ROUTE = f"https://{SERVER_IP}/admin/pi"
+ROUTE = f"https://yncgym.ml/admin/pi"
 
 class Data(object):
   """Object to encapsulate data sending/preprocessing"""
@@ -146,10 +146,14 @@ class Data(object):
   def send_data(self, endpoint):
     """Send data to the server"""
     try:
-      r = requests.post(endpoint, json=self.data, timeout=2)
+      r = requests.post(endpoint,
+                        json=self.data,
+                        verify=True,
+                        timeout=2)
       r.raise_for_status()
-    except:
-      print("Could not send data")
+    except Exception as e:
+      print("Could not send data\n")
+      print(e)
     finally:
       self.data.clear()
       time.sleep(1)
