@@ -40,6 +40,7 @@ import picamera
 from PIL import Image
 from tflite_runtime.interpreter import Interpreter
 from dotenv import load_dotenv
+from signal import switch
 
 load_dotenv()
 
@@ -159,13 +160,14 @@ class Data(object):
       time.sleep(1)
 
   def timer_thread(self):
+    """Signal post event to run"""
     time.sleep(2)
     while self.flag:
       self.process_result()
       time.sleep(1)
       
 # ================================ Main Function ================================
-
+@switch
 def main():
   parser = argparse.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -197,15 +199,14 @@ def main():
   interpreter.allocate_tensors()
   _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
 
-  with picamera.PiCamera(
-      resolution=(CAMERA_WIDTH, CAMERA_HEIGHT), framerate=30) as camera:
+  with picamera.PiCamera(resolution=(CAMERA_WIDTH, CAMERA_HEIGHT), framerate=30) as camera:
     camera.vflip = True
     camera.led = True
     on = args.watch
     D = Data()
     if on:
       t = threading.Thread(target=D.timer_thread)
-      camera.start_preview()#fullscreen=False, window=(WINDOW_X,WINDOW_Y,CAMERA_WIDTH,CAMERA_HEIGHT))
+      camera.start_preview() # fullscreen=False, window=(WINDOW_X,WINDOW_Y,CAMERA_WIDTH,CAMERA_HEIGHT))
       time.sleep(2)
       t.start()
     while True:
