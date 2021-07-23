@@ -24,7 +24,3 @@ def switch(func):
 				break
 				print("\nQuitting")
 	return wrapper
-
-led.source = button
-
-pause()

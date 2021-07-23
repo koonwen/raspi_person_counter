@@ -29,10 +29,6 @@ import requests
 import threading
 
 from annotation import Annotator
-# TODO
-# Implement turn off and on preview
-# Implement camera light
-# from pynput.keyboard import Key, Listener
 
 import numpy as np
 import picamera
@@ -40,7 +36,7 @@ import picamera
 from PIL import Image
 from tflite_runtime.interpreter import Interpreter
 from dotenv import load_dotenv
-from signal import switch, light
+from sig import switch, light
 
 load_dotenv()
 
@@ -218,7 +214,7 @@ def parse_cli_args():
   return parser.parse_args()
 
 # ================================ Main Function ================================
-@switch
+#@switch
 def main():
   args = parse_cli_args()
 
