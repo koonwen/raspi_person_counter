@@ -1,5 +1,6 @@
 from gpiozero import LED, Button
 from time import sleep
+from signal import pause
 
 led = LED(4)
 button = Button(17)
@@ -24,3 +25,6 @@ def switch(func):
 				print("\nQuitting")
 	return wrapper
 
+led.source = button
+
+pause()

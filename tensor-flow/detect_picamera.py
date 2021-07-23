@@ -165,12 +165,35 @@ class Data(object):
     while self.flag:
       self.process_result()
       time.sleep(1)
-      
-# ================================ Main Function ================================
-@switch
-def main():
-  parser = argparse.ArgumentParser(
-      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+
+# ================================ Camera ======================================
+def start_background(interpreter, threshold):
+  """Start image detection in the background"""
+  _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
+  with picamera.PiCamera(resolution=(CAMERA_WIDTH, CAMERA_HEIGHT), framerate=30) as camera:
+    camera.vflip = True
+    D = Data()
+    stream = io.BytesIO()
+    while True:
+      try:
+          camera.capture(stream, format='jpeg', resize=(input_width, input_height))
+          stream.truncate()
+          stream.seek(0)
+          image = Image.open(stream)
+          D.results = detect_objects(interpreter, image, threshold)
+          D.process_result()
+          time.sleep(1)
+
+      except KeyboardInterrupt:
+        break
+
+    print("Exitting")
+
+# ================================ CLI Args =====================================
+def parse_cli_args():
+  """Commnad line options parser"""
+  parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser.add_argument(
     '--model',
     help='File path of .tflite file.',
@@ -192,8 +215,15 @@ def main():
     required=False,
     type=bool,
     default=0)
-  args = parser.parse_args()
+  return parser.parse_args()
 
+# ================================ Main Function ================================
+@switch
+def main():
+  args = parse_cli_args()
+
+  # Configuration
+  watch = args.watch
   labels = load_labels(args.labels)
   interpreter = Interpreter(args.model)
   interpreter.allocate_tensors()
@@ -202,9 +232,8 @@ def main():
   with picamera.PiCamera(resolution=(CAMERA_WIDTH, CAMERA_HEIGHT), framerate=30) as camera:
     camera.vflip = True
     camera.led = True
-    on = args.watch
     D = Data()
-    if on:
+    if watch:
       t = threading.Thread(target=D.timer_thread)
       camera.start_preview() # fullscreen=False, window=(WINDOW_X,WINDOW_Y,CAMERA_WIDTH,CAMERA_HEIGHT))
       time.sleep(2)
@@ -213,7 +242,7 @@ def main():
       try:
         stream = io.BytesIO()
         annotator = Annotator(camera, "green")
-        if on:
+        if watch:
           for _ in camera.capture_continuous(stream, format='jpeg',
                                              resize=(input_width, input_height),
                                              use_video_port=True):
@@ -248,5 +277,15 @@ def main():
     if on:
         t.join()
 
+def run():
+  args = parse_cli_args()
+
+  interpreter = Interpreter(args.model)
+  interpreter.allocate_tensors()
+  _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
+
+  start_background(interpreter, args.threshold)
+
 if __name__ == '__main__':
-  main()
+  # main()
+  run()
