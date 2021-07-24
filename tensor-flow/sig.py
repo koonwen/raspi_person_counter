@@ -1,26 +1,33 @@
 from gpiozero import LED, Button
-from time import sleep
 from signal import pause
+from threading import Thread, Event
 
 led = LED(4)
 button = Button(17)
 
-def light():
-	if led.is_lit:
-		led.off()
-	else:
-		led.on()
+# Event Signal
+button_press = Event()
 
+# Decorator to implement function start and stop via button
+def button_interrupt(func):
 
-def switch(func):
+	func_thread = Thread(target=func, name="function")
+	func_thread.start()
+
+	def switch():
+		if led.is_lit:
+			button_press.clear()
+			led.off()
+		else:
+			button_press.set()
+			led.on()
+
 	def wrapper():
-		while True:
-			try:
-				button.wait_for_press()
-				light()
-				func()
-				light()
-			except KeyboardInterrupt:
-				break
-				print("\nQuitting")
+		try:
+			button.when_pressed = switch
+			pause()
+		except KeyboardInterrupt:
+			func_thread.join()
+			print("Exitting")
+
 	return wrapper

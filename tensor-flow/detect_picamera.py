@@ -36,7 +36,7 @@ import picamera
 from PIL import Image
 from tflite_runtime.interpreter import Interpreter
 from dotenv import load_dotenv
-from sig import switch, light
+from sig import button_interrupt, button_press
 
 load_dotenv()
 
@@ -171,11 +171,11 @@ def start_background(interpreter, threshold):
     camera.vflip = True
     D = Data()
     stream = io.BytesIO()
-    while True:
+    while button_press.wait():
       try:
-          camera.capture(stream, format='jpeg', resize=(input_width, input_height))
           stream.truncate()
           stream.seek(0)
+          camera.capture(stream, format='jpeg', resize=(input_width, input_height))
           image = Image.open(stream)
           D.results = detect_objects(interpreter, image, threshold)
           D.process_result()
@@ -185,6 +185,46 @@ def start_background(interpreter, threshold):
         break
 
     print("Exitting")
+
+def watch_background(input_width, input_height, interpreter, labels, threshold):
+  """Start image detection with preview"""
+  with picamera.PiCamera(resolution=(CAMERA_WIDTH, CAMERA_HEIGHT), framerate=30) as camera:
+    camera.vflip = True
+    camera.led = True
+    D = Data()
+    t = threading.Thread(target=D.timer_thread)
+    camera.start_preview() # fullscreen=False, window=(WINDOW_X,WINDOW_Y,CAMERA_WIDTH,CAMERA_HEIGHT))
+    t.start()
+    time.sleep(2)
+    stream = io.BytesIO()
+    annotator = Annotator(camera, "green")
+    while True():
+      try:
+          for _ in camera.capture_continuous(stream, format='jpeg',
+                                            resize=(input_width, input_height),
+                                            use_video_port=True):
+            stream.seek(0)
+            image = Image.open(stream).convert('RGB')
+            #.resize((input_width, input_height), Image.NEAREST)#Image.ANTIALIAS)
+            
+            start_time = time.monotonic()
+            D.results = detect_objects(interpreter, image, threshold)
+            elapsed_ms = (time.monotonic() - start_time) * 1000
+
+            annotator.clear()
+            annotate_objects(annotator, D.results, labels)
+            annotator.text([5, 0], '%.1fms' % (elapsed_ms))
+            annotator.text([540, 0], f"Person count: {len(D.results)}")
+            annotator.update()
+            stream.seek(0)
+      except KeyboardInterrupt:
+        break
+      finally:
+        D.flag = False
+        t.join()
+        camera.stop_preview()
+        print("Quitting\n")
+
 
 # ================================ CLI Args =====================================
 def parse_cli_args():
@@ -214,74 +254,20 @@ def parse_cli_args():
   return parser.parse_args()
 
 # ================================ Main Function ================================
-#@switch
+@button_interrupt
 def main():
   args = parse_cli_args()
 
   # Configuration
-  watch = args.watch
   labels = load_labels(args.labels)
   interpreter = Interpreter(args.model)
   interpreter.allocate_tensors()
   _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
 
-  with picamera.PiCamera(resolution=(CAMERA_WIDTH, CAMERA_HEIGHT), framerate=30) as camera:
-    camera.vflip = True
-    camera.led = True
-    D = Data()
-    if watch:
-      t = threading.Thread(target=D.timer_thread)
-      camera.start_preview() # fullscreen=False, window=(WINDOW_X,WINDOW_Y,CAMERA_WIDTH,CAMERA_HEIGHT))
-      time.sleep(2)
-      t.start()
-    while True:
-      try:
-        stream = io.BytesIO()
-        annotator = Annotator(camera, "green")
-        if watch:
-          for _ in camera.capture_continuous(stream, format='jpeg',
-                                             resize=(input_width, input_height),
-                                             use_video_port=True):
-            stream.seek(0)
-            image = Image.open(stream).convert('RGB')
-            #.resize((input_width, input_height), Image.NEAREST)#Image.ANTIALIAS)
-            
-            start_time = time.monotonic()
-            D.results = detect_objects(interpreter, image, args.threshold)
-            elapsed_ms = (time.monotonic() - start_time) * 1000
-
-            annotator.clear()
-            annotate_objects(annotator, D.results, labels)
-            annotator.text([5, 0], '%.1fms' % (elapsed_ms))
-            annotator.text([540, 0], f"Person count: {len(D.results)}")
-            annotator.update()
-            stream.seek(0)
-        else:
-          camera.capture(stream, format='jpeg', resize=(input_width, input_height))
-          stream.truncate()
-          stream.seek(0)                
-          image = Image.open(stream)
-          D.results = detect_objects(interpreter, image, args.threshold)
-          D.process_result()
-
-      except KeyboardInterrupt:
-        break
-        print("Exitting")
-        D.flag = False
-        camera.stop_preview()
-
-    if on:
-        t.join()
-
-def run():
-  args = parse_cli_args()
-
-  interpreter = Interpreter(args.model)
-  interpreter.allocate_tensors()
-  _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
-
-  start_background(interpreter, args.threshold)
+  if args.watch:
+    watch_background(input_width, input_height, interpreter, labels, args.threshold)
+  else:
+    start_background(interpreter, args.threshold)
 
 if __name__ == '__main__':
-  # main()
-  run()
+  main()
