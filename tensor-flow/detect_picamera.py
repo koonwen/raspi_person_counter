@@ -126,7 +126,7 @@ class Data(object):
     self.count = 0
     self.results = []
     self.flag = True
-    
+
   def process_result(self):
     """Processing routine called everytime image data comes in"""
     if self.count < 5:
@@ -135,7 +135,7 @@ class Data(object):
       print(self.data)
     else:
       self.count = 0
-      self.data['average'] = sorted([value for value in self.data.values()])[2]
+      self.data['mode'] = sorted([value for value in self.data.values()])[2]
       self.data['timestamp'] = datetime.datetime.now().isoformat(sep=' ', timespec='seconds')
       print(self.data)
       self.send_data(ROUTE)
@@ -156,7 +156,7 @@ class Data(object):
       time.sleep(1)
 
   def timer_thread(self):
-    """Signal post event to run"""
+    """Signal post event to run.py"""
     time.sleep(2)
     while self.flag:
       self.process_result()
