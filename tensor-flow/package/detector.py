@@ -11,10 +11,11 @@ class Detector(object):
     """Detector class which acts as a wrapper for the tensor flow library API"""
     def __init__(self, model, path_to_label_file, threshold=0.4):
         self.interpreter = Interpreter(model)
+        self.interpreter.allocate_tensors()
         self.labels = self.load_labels(path_to_label_file)
         self.threshold = threshold
         _, self.input_height, self.input_width, _ = self.interpreter.get_input_details()[0]['shape']
-
+	
     @staticmethod
     def load_labels(path):
         """Loads the labels file. Supports files with or without index numbers."""
@@ -43,14 +44,14 @@ class Detector(object):
 
     def detect_objects(self, image):
         """Returns a list of detection results, each a dictionary of object info."""
-        self.set_input_tensor(self.interpreter, image)
+        self.set_input_tensor(image)
         self.interpreter.invoke()
 
         # Get all output details
-        boxes = self.get_output_tensor(self.interpreter, 0)
-        classes = self.get_output_tensor(self.interpreter, 1)
-        scores = self.get_output_tensor(self.interpreter, 2)
-        count = int(self.get_output_tensor(self.interpreter, 3))
+        boxes = self.get_output_tensor(0)
+        classes = self.get_output_tensor(1)
+        scores = self.get_output_tensor(2)
+        count = int(self.get_output_tensor(3))
 
         results = []
         for i in range(count):
@@ -63,7 +64,6 @@ class Detector(object):
                 results.append(result)
         return results
 
-    @staticmethod
     def annotate_objects(self, annotator, results):
         """Draws the bounding box and label for each object in the results."""
         for obj in results:

@@ -1,17 +1,19 @@
 import os
 import requests
+from requests.auth import HTTPBasicAuth
 from time import sleep
 from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
-SERVER_IP = os.environ["SERVER_IP"]
 ROUTE = os.environ["POST_DATA_ROUTE"]
+USER = os.environ["USER"]
+PASSWORD = os.environ["PASSWORD"]
 
 
 class Data(object):
     """Class for handling data sending/preprocessing"""
-    def __init__(self, collection_limit):
+    def __init__(self, collection_limit=5):
         self.collection_limit = collection_limit
         self.current_collection_count = 0
         self.data = dict()
@@ -34,13 +36,14 @@ class Data(object):
             self.data['mode'] = sorted([value for value in self.data.values()])[self.mode_index]
             self.data['timestamp'] = datetime.now().isoformat(sep=' ', timespec='seconds')
             print(self.data)
-            self.post_data(ROUTE)
+            self.post_data()
 
     def post_data(self):
         """Send data to the server"""
         try:
-            r = requests.post(ROUTE, json=self.data, verify=True, timeout=2)
+            r = requests.post(ROUTE, json=self.data, verify=True, timeout=2, auth=HTTPBasicAuth(USER, PASSWORD))
             r.raise_for_status()
+            pass
         except Exception as err:
             print("Could not send data\n")
             print(err)
