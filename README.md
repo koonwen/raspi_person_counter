@@ -17,3 +17,6 @@ Within the directory, you will find the modules as follows:
 - sig.py: Test bed for incorporating signalling I/O for our program (button to start and stop)
 - test_cam.py: A small test program to check functionality of the picamera
 - test_data.py: A small test program to check the functionality of sending data to the cloud server
+
+# Refereneces
+The code in this repo is adapted from https://github.com/tensorflow/examples/tree/master/lite/examples/image_classification/raspberry_pi. Credits to the authors of the TensorFlow-Lite Libraries and the Raspberry Pi tutorial!
