@@ -1,52 +1,19 @@
 # Computer Vision
-This repo contains the image detection code to be run on a raspberry pi. It also contains explanation of basic computer vision theory
+This repo contains the image detection code to be run on a Raspberry Pi. It also contains explanation of basic computer vision theory
 
-## Theory
-If you are like me... coming into Computer Vision with no coding experience or knowledge,  
-this repository is meant to serve as an introductory guide to the basic **Theory** of Computer Vision  
-& uses LeNet-5 Architecture to demonstrate how to **Implement** it in code.
+# Motivation
+With data privacy being a big concern and by striving to keep data transfer over the network low, it is a good idea to implement the image processing on the Pi itself which sends out only timestamps and integer values to our server. The current CV implementation uses the tensorflow-lite library and it's pre-packaged model for object detection. The OpenCV directory is a test bed for different CV frameworks. Future work may include training a custom model for the gym. Currently only detects people.
 
-## Computer Vision Theory Basics
+# Components
+The main detection program that runs on the Raspberry Pi is found in `/tensor-flow/package`.
 
-1. Testing & Training
-2. Perceptron
-3. Back propagation
-4. Gradient Descent
-
-## Convulational Neural Network (CNN) terms to know:
-
-**Key Terms to Know**
-- Kernal
-- Stride
-- Padding
-- Pooling:
-  - Max Pooling
-  - Average Pooling
-- Flattening
-
-## LeNet5-Implementation
-
-![Image of LeNet-5 Architecture](https://miro.medium.com/max/4348/1*PXworfAP2IombUzBsDMg7Q.png)
-
-Progress:
-- [x] Setup
-- [ ] Coding Base Structure
-- [ ] Training
-- [ ] Testing
-- [ ] Iteration
-
-
-Setup (Language and Virtual Environment Setup & Libraries & Dependencies Installation):
-
-1. I created a project folder in my Desktop named 'ComputerVision' by typing `mkdir Desktop/ComputerVision` into my terminal command line
-2. I created a **Virtual Environment** to separate my system libraries from my project libraries using the built-in 'venv' library that comes with python 3 versions. Python 3.7.7 was already downloaded within my system directory. In terminal I entered  
-`python3 -m venv Desktop/ComputerVision/CV_Venv`
-3. In order to activate my **Virtual Environment** in the command line I entered  
-`source Desktop/ComputerVision/CV_Venv/bin/activate`
-4. From here I installed *numpy, torch, torchvision* with
-    pip install numpy
-    pip install torch torchvision
-5. I am using VS code for my text editor
-
-
-
+Within the directory, you will find the modules as follows:
+- annotation.py: Class for drawing annotion boxes around detected objects (Used only for demo and development)
+- camera.py: Camera class that provides interfaces to start detection in the background (during production) and watch background (testing purposes)
+- coco_labels.txt: Labels that the model can detects
+- data.py: Data class which encapsulates the logic and format of sending data to the cloud server
+- detector.py: Detector class that makes use of tensorflow framework
+- run.py: Program entry point defining flags for running program from the command line
+- sig.py: Test bed for incorporating signalling I/O for our program (button to start and stop)
+- test_cam.py: A small test program to check functionality of the picamera
+- test_data.py: A small test program to check the functionality of sending data to the cloud server
