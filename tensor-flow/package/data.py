@@ -1,55 +1,50 @@
-import os
-import requests
-from requests.auth import HTTPBasicAuth
+import sqlite3
 from time import sleep
-from datetime import datetime
-from dotenv import load_dotenv
-
-load_dotenv()
-ROUTE = os.environ["POST_DATA_ROUTE"]
-USER = os.environ["USER"]
-PASSWORD = os.environ["PASSWORD"]
 
 
 class Data(object):
     """Class for handling data sending/preprocessing"""
+
     def __init__(self, collection_limit=5):
+        self.conn = sqlite3.connect('data.db')
+        self.cur = self.conn.cursor()
         self.collection_limit = collection_limit
         self.current_collection_count = 0
-        self.data = dict()
+        self.data = [0, 0, 0, 0, 0]
         self.detection_list = []
         self.post_data_semaphore = True
 
-    @property
-    def mode_index(self):
-        """return the mode index of the collection_limit"""
-        return self.collection_limit//2
+    def close_table(self):
+        self.conn.commit()
+        self.cur.close()
+
+    def create_table(self):
+        self.cur.execute(
+            'CREATE TABLE Data('
+            'img1 INTEGER,'
+            'img2 INTEGER,'
+            'img3 INTEGER,'
+            'img4 INTEGER,'
+            'img5 INTEGER,'
+            'timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)'
+        )
+
+    def save_data(self):
+        """Save data to file"""
+        self.cur.execute('INSERT INTO Data(img1, img2, img3, img4, img5) VALUES(?, ?, ?, ?, ?)',
+                         (self.data[0], self.data[1], self.data[2], self.data[3], self.data[4]))
+        self.conn.commit()
 
     def process_result(self):
         """Processing routine called everytime image data comes in"""
         if self.current_collection_count < 5:
             self.current_collection_count += 1
-            self.data[f'img{self.current_collection_count}'] = len(self.detection_list)
+            self.data[self.current_collection_count] = len(self.detection_list)
             print(self.data)
         else:
             self.current_collection_count = 0
-            self.data['mode'] = sorted([value for value in self.data.values()])[self.mode_index]
-            self.data['timestamp'] = datetime.now().isoformat(sep=' ', timespec='seconds')
             print(self.data)
-            self.post_data()
-
-    def post_data(self):
-        """Send data to the server"""
-        try:
-            r = requests.post(ROUTE, json=self.data, verify=True, timeout=2, auth=HTTPBasicAuth(USER, PASSWORD))
-            r.raise_for_status()
-            pass
-        except Exception as err:
-            print("Could not send data\n")
-            print(err)
-        finally:
-            self.data.clear()
-            sleep(1)
+            self.save_data()
 
     def timer_thread(self, time_interval):
         """Signal post event to run.py"""

@@ -9,13 +9,14 @@ CAMERA_HEIGHT = 480
 
 class Detector(object):
     """Detector class which acts as a wrapper for the tensor flow library API"""
+
     def __init__(self, model, path_to_label_file, threshold=0.4):
         self.interpreter = Interpreter(model)
         self.interpreter.allocate_tensors()
         self.labels = self.load_labels(path_to_label_file)
         self.threshold = threshold
         _, self.input_height, self.input_width, _ = self.interpreter.get_input_details()[0]['shape']
-	
+
     @staticmethod
     def load_labels(path):
         """Loads the labels file. Supports files with or without index numbers."""
